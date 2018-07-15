@@ -1,40 +1,47 @@
 package cc.hyperium.gui.main;
 
+import cc.hyperium.Hyperium;
+import cc.hyperium.Metadata;
+import cc.hyperium.config.Settings;
 import cc.hyperium.event.EventBus;
 import cc.hyperium.gui.GuiBlock;
 import cc.hyperium.gui.HyperiumGui;
 import cc.hyperium.gui.Icons;
 import cc.hyperium.gui.main.components.AbstractTab;
-import cc.hyperium.gui.main.tabs.AddonsInstallerTab;
-import cc.hyperium.gui.main.tabs.AddonsTab;
-import cc.hyperium.gui.main.tabs.CosmeticsTab;
-import cc.hyperium.gui.main.tabs.HomeTab;
-import cc.hyperium.gui.main.tabs.InfoTab;
-import cc.hyperium.gui.main.tabs.SettingsTab;
+import cc.hyperium.gui.main.tabs.*;
+import cc.hyperium.installer.api.entities.InstallerManifest;
+import cc.hyperium.installer.api.entities.VersionManifest;
+import cc.hyperium.mods.sk1ercommon.Multithreading;
+import cc.hyperium.mods.sk1ercommon.ResolutionUtil;
+import cc.hyperium.utils.DownloadTask;
 import cc.hyperium.utils.HyperiumFontRenderer;
+import cc.hyperium.utils.InstallerUtils;
+import cc.hyperium.utils.UpdateUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.Color;
-import java.awt.Font;
+import java.awt.*;
+import java.io.File;
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 
 /*
  * Created by Cubxity on 20/05/2018
  */
 public class HyperiumMainGui extends HyperiumGui {
 
-    public static HyperiumMainGui INSTANCE;
+    public static HyperiumMainGui INSTANCE = new HyperiumMainGui();
     private final HyperiumFontRenderer fr = new HyperiumFontRenderer("Arial", Font.PLAIN, 20);
+    public boolean show = false;
+    public UpdateUtils utils;
     private long lastSelectionChange = 0L;
     private List<String> loadedAlerts = new ArrayList<>();
     private AbstractTab currentTab = null;
@@ -45,6 +52,14 @@ public class HyperiumMainGui extends HyperiumGui {
     private float highlightScale = 0f;
     private List<AbstractTab> tabs = new ArrayList<>();
     private CosmeticsTab cosmeticsTab;
+    private List<Object> settingsObjects = new ArrayList<>();
+
+    public HyperiumMainGui() {
+        settingsObjects.add(Settings.INSTNACE);
+        settingsObjects.add(Hyperium.INSTANCE.getModIntegration().getAutotip());
+        settingsObjects.add(Hyperium.INSTANCE.getModIntegration().getMotionBlur());
+        settingsObjects.add(Hyperium.INSTANCE.getModIntegration().getLevelhead().getConfig());
+    }
 
     public List<AbstractTab> getTabs() {
         return tabs;
@@ -80,7 +95,6 @@ public class HyperiumMainGui extends HyperiumGui {
             EventBus.INSTANCE.unregister(tab);
         }
         scollMultiplier = .5;
-        INSTANCE = this;
         int pw = width / 15;
         if (pw > 144)
             pw = 144; // icon res
@@ -91,13 +105,16 @@ public class HyperiumMainGui extends HyperiumGui {
         SettingsTab settingsTab = new SettingsTab(height / 2 - pw, pw);
         EventBus.INSTANCE.register(settingsTab);
 
+
+        modsTab = new ModsTab(height / 2, pw);
         tabs = Arrays.asList(
                 ht,
                 cosmeticsTab = new CosmeticsTab(height / 2 - pw * 2, pw),
                 settingsTab,
-                new AddonsTab(height / 2, pw),
-                new InfoTab(height / 2 + pw, pw),
-                new AddonsInstallerTab(height / 2 + pw * 2, pw)
+                modsTab,
+                new AddonsTab(height / 2 + pw, pw),
+                new InfoTab(height / 2 + pw * 2, pw),
+                new AddonsInstallerTab(height / 2 + pw * 3, pw)
         );
         tabFade = 1f;
     }
@@ -106,6 +123,10 @@ public class HyperiumMainGui extends HyperiumGui {
     public void show() {
         super.show();
         pack();
+    }
+    private ModsTab modsTab;
+    public List<Object> getSettingsObjects() {
+        return settingsObjects;
     }
 
     @Override
@@ -117,6 +138,10 @@ public class HyperiumMainGui extends HyperiumGui {
         if (pw > 144)
             pw = 144; // icon res
 
+        GlStateManager.scale(3, 3, 0);
+        ScaledResolution current = ResolutionUtil.current();
+        fontRendererObj.drawString(currentTab.getTitle(), current.getScaledWidth() / 2 / 3 - fontRendererObj.getStringWidth(currentTab.getTitle()) / 2, 15 / 3, Color.WHITE.getRGB(), true);
+        GlStateManager.scale(1 / 3F, 1 / 3F, 1 / 3F);
         // Draws side pane
         GlStateManager.pushMatrix();
         GlStateManager.enableBlend();
@@ -138,10 +163,26 @@ public class HyperiumMainGui extends HyperiumGui {
         if (currentAlert != null)
             currentAlert.render(fr, width, height);
 
+        if (!isLatestVersion() && !show && Settings.UPDATE_NOTIFICATIONS && !Metadata.isDevelopment()) {
+            Alert alert = new Alert(Icons.ERROR.getResource(), () -> downloadLatest(), "Hyperium Update! Click here to download.");
+            alerts.add(alert);
+            show = true;
+        }
+
         if (overlay != null) {
+            int y = height / 4;
+
+
             overlay.render(mouseX, mouseY, width, height);
             int x = width / 6 * 2;
-            int y = height / 4;
+            GlStateManager.scale(2, 2, 2);
+            int stringWidth = fontRendererObj.getStringWidth(overlay.getName());
+            int x1 = ResolutionUtil.current().getScaledWidth() / 4 - stringWidth / 2;
+            int y1 = y / 2 - 10;
+            Gui.drawRect(x1 - 1, y1 - 1, x1 + stringWidth + 1, y1 + 9, new Color(30, 30, 30, 255).getRGB());
+            fontRendererObj.drawString(overlay.getName(), x1, y1, Color.WHITE.getRGB(), true);
+
+            GlStateManager.scale(.5, .5, .5);
             Icons.EXIT.bind();
             Gui.drawRect(x, y - 16, x + 16, y, new Color(0, 0, 0, 100).getRGB());
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
@@ -153,6 +194,45 @@ public class HyperiumMainGui extends HyperiumGui {
 
         if (tabFade == 0f && highlightScale < 1f)
             highlightScale += 0.08f;
+    }
+
+    public boolean isLatestVersion() {
+        return Hyperium.INSTANCE.isLatestVersion;
+    }
+
+    public void downloadLatest() {
+        try {
+            Hyperium.INSTANCE.getNotification().display("Update", "Downloading updates...", 3);
+            InstallerManifest manifest = InstallerUtils.getManifest();
+            VersionManifest ver = manifest.getVersions()[0];
+            boolean download = ver.getId() > Metadata.getVersionID();
+            System.out.println("Download=" + download);
+            Multithreading.runAsync(() -> {
+                try {
+                    File jar;
+                    if (download || Hyperium.INSTANCE.isDevEnv()) { // or else it will break in dev env
+                        DownloadTask task = new DownloadTask(ver.getUrl(), System.getProperty("java.io.tmpdir"));
+                        task.execute();
+                        task.get();
+                        jar = new File(System.getProperty("java.io.tmpdir"), task.getFileName());
+                    } else {
+                        jar = new File(System.getProperty("sun.java.command").split(" ")[0]);
+                    }
+                    Multithreading.schedule(() -> {
+                        Minecraft.getMinecraft().shutdown();
+                        try {
+                            Runtime.getRuntime().exec(System.getProperty("java.home") + "/bin/java -jar " + jar.getAbsolutePath());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }, 10, TimeUnit.SECONDS);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     @Override
@@ -192,7 +272,7 @@ public class HyperiumMainGui extends HyperiumGui {
     @Override
     public void handleMouseInput() throws IOException {
         super.handleMouseInput();
-//        currentTab.handleMouseInput();
+        currentTab.handleMouseInput();
         if (overlay != null)
             overlay.handleMouseInput();
     }
@@ -217,6 +297,10 @@ public class HyperiumMainGui extends HyperiumGui {
 
     public AbstractTab getCurrentTab() {
         return currentTab;
+    }
+
+    public AbstractTab getModsTab() {
+        return modsTab;
     }
 
     /**

@@ -17,21 +17,74 @@
 
 package cc.hyperium.mixins;
 
-import cc.hyperium.utils.Utils;
+import cc.hyperium.mixinsimp.HyperiumTextureManager;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.ITextureObject;
+import net.minecraft.client.renderer.texture.ITickable;
+import net.minecraft.client.renderer.texture.ITickableTextureObject;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.util.ResourceLocation;
+import org.apache.logging.log4j.Logger;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.Shadow;
+
+import java.util.List;
+import java.util.Map;
 
 @Mixin(TextureManager.class)
-public class MixinTextureManager {
+public abstract class MixinTextureManager {
 
 
-    @Inject(method = "onResourceManagerReload", at = @At("HEAD"))
-    private void onResourceManagerReload(IResourceManager resourceManager, CallbackInfo ci) {
-        Utils.INSTANCE.setCursor(new ResourceLocation("textures/cursor.png"));
+    @Shadow
+    @Final
+    private static Logger logger;
+    private HyperiumTextureManager hyperiumTextureManager = new HyperiumTextureManager((TextureManager) (Object) this);
+    @Shadow
+    @Final
+    private Map<ResourceLocation, ITextureObject> mapTextureObjects;
+    @Shadow
+    private IResourceManager theResourceManager;
+
+    @Shadow
+    @Final
+    private Map<String, Integer> mapTextureCounters;
+
+
+    @Shadow @Final private List<ITickable> listTickables;
+
+    /**
+     * @author Sk1er
+     * @reason Broken dynamic textures
+     */
+    @Overwrite
+    public boolean loadTexture(ResourceLocation textureLocation, ITextureObject textureObj) {
+        return hyperiumTextureManager.loadTexture(textureLocation, textureObj, theResourceManager,mapTextureObjects,logger);
     }
+
+    @Overwrite
+    public boolean loadTickableTexture(ResourceLocation textureLocation, ITickableTextureObject textureObj) {
+        return hyperiumTextureManager.loadTickableTexture(textureLocation, textureObj, listTickables);
+    }
+
+    /**
+     * @author Sk1er
+     * @reason Broken dynamic textures
+     */
+    @Overwrite
+    public ResourceLocation getDynamicTextureLocation(String name, DynamicTexture texture) {
+        return hyperiumTextureManager.getDynamicTextureLocation(name, texture, mapTextureCounters);
+    }
+
+    /**
+     * @author Sk1er and Mojang
+     */
+    @Overwrite
+    public void onResourceManagerReload(IResourceManager resourceManager) {
+        hyperiumTextureManager.onResourceManagerReload(resourceManager, mapTextureObjects);
+    }
+
+
 }

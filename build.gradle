@@ -36,6 +36,7 @@ buildscript {
             url 'https://jitpack.io'
         }
 
+
     }
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:2.1-SNAPSHOT'
@@ -60,7 +61,7 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 compileJava.options.encoding = 'UTF-8'
 
-version = "0.15"
+version = "0.19.1"
 group = "cc.hyperium"
 archivesBaseName = "Hyperium"
 
@@ -95,9 +96,11 @@ dependencies {
 
     embed "com.github.KevinPriv:MojangAPI:1.0"
     embed 'com.github.Cubxity:DeobfStack:1.2'
+    embed 'com.github.HyperiumClient:Installer:3038d3ffbe'
 
     embed fileTree(dir: 'libs', include: 'Netty Client.jar')
     compile fileTree(dir: 'libs', include: '*.jar')
+
 }
 
 
@@ -143,7 +146,7 @@ jar {
             "TweakClass": 'cc.hyperium.launch.HyperiumTweaker',
             "TweakOrder": 0,
             "Manifest-Version": 1.0,
-            'Main-Class': 'cc.hyperium.installer.InstallerMain'
+            'Main-Class': 'cc.hyperium.installer.InstallerStart'
     )
     configurations.embed.each { dep ->
         from(project.zipTree(dep)) {

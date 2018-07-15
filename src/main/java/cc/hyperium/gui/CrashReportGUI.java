@@ -39,7 +39,6 @@ import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicReference;
@@ -74,10 +73,6 @@ public class CrashReportGUI extends JDialog {
 
         this.setVisible(true);
         this.setLayout(null);
-    }
-
-    public CrashReportGUI() {
-
     }
 
     public static int handle(CrashReport report) {
@@ -158,48 +153,23 @@ public class CrashReportGUI extends JDialog {
         report.setBorderPainted(false);
         report.setFocusPainted(false);
         report.setBounds(2, 208, 196, 20);
-        report.addActionListener(e -> {
-            Multithreading.runAsync(new Runnable() {
-                @Override
-                public void run() {
-                    if (update.isSupported()) {
-                        report.setEnabled(false);
-                        report.setText("REPORTING...");
-                        if (sendReport()) {
-                            report.setEnabled(false);
-                            report.setText("REPORTED");
-                        } else if (copyReport()) {
-                            report.setEnabled(false);
-                            report.setText("COPIED TO CLIPBOARD");
-                        } else {
-                            report.setText("FAILED TO REPORT");
-                        }
-                    } else if (Hyperium.INSTANCE.isDevEnv()) {
-                        report.setEnabled(false);
-                        report.setText("REPORTING...");
-                        if (sendReport()) {
-                            report.setEnabled(false);
-                            report.setText("REPORTED");
-                        } else if (copyReport()) {
-                            report.setEnabled(false);
-                            report.setText("COPIED TO CLIPBOARD");
-                        } else {
-                            report.setText("FAILED TO REPORT");
-                        }
-                    } else {
-                        report.setEnabled(false);
-                        report.setText("Update Hyperium");
-                        try {
-                            Desktop.getDesktop().browse(new URI("https://hyperium.cc"));
-                        } catch (IOException e1) {
-                            e1.printStackTrace();
-                        } catch (URISyntaxException e1) {
-                            e1.printStackTrace();
-                        }
-                    }
+        report.addActionListener(e -> Multithreading.runAsync(() -> {
+            if (!update.isSupported() || !Metadata.isDevelopment()) {
+                report.setText("Outdated Build");
+            } else {
+                report.setEnabled(false);
+                report.setText("REPORTING...");
+                if (sendReport()) {
+                    report.setEnabled(false);
+                    report.setText("REPORTED");
+                } else if (copyReport()) {
+                    report.setEnabled(false);
+                    report.setText("COPIED TO CLIPBOARD");
+                } else {
+                    report.setText("FAILED TO REPORT");
                 }
-            });
-        });
+            }
+        }));
 
         JButton restart = new JButton("RESTART");
         restart.setUI(new BasicButtonUI());
@@ -275,12 +245,14 @@ public class CrashReportGUI extends JDialog {
             if (report != null && hurl == null)
                 return false;
 
-            NettyClient.getClient().write(ServerCrossDataPacket.build(new JsonHolder().put("crash_report", true).put("internal", true).put("crash",
-                    new JsonHolder()
-                            .put("crash-full", report == null ? "unavailable" : hurl)
-                            .put("hyperium", Metadata.getVersion())
-                            .put("addons", addons.toString())
-            )));
+            NettyClient client = NettyClient.getClient();
+            if (client != null)
+                client.write(ServerCrossDataPacket.build(new JsonHolder().put("crash_report", true).put("internal", true).put("crash",
+                        new JsonHolder()
+                                .put("crash-full", report == null ? "unavailable" : hurl)
+                                .put("hyperium", Metadata.getVersion())
+                                .put("addons", addons.toString())
+                )));
             return true;
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -319,7 +291,7 @@ public class CrashReportGUI extends JDialog {
         return f;
     }
 
-    private String haste(String txt) {
+    public static String haste(String txt) {
         try {
             HttpClient hc = HttpClients.createDefault();
             HttpPost post = new HttpPost("https://hastebin.com/documents");

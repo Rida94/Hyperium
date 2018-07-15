@@ -1,6 +1,7 @@
 package cc.hyperium.gui.main.tabs;
 
 import cc.hyperium.Hyperium;
+import cc.hyperium.Metadata;
 import cc.hyperium.gui.GuiBlock;
 import cc.hyperium.gui.GuiHyperiumCredits;
 import cc.hyperium.gui.Icons;
@@ -9,32 +10,32 @@ import cc.hyperium.gui.main.HyperiumOverlay;
 import cc.hyperium.gui.main.components.AbstractTab;
 import cc.hyperium.gui.main.components.OverlayButton;
 import cc.hyperium.gui.main.components.SettingItem;
-import cc.hyperium.installer.InstallerConfig;
-import cc.hyperium.installer.utils.DownloadTask;
+import cc.hyperium.installer.api.entities.InstallerManifest;
+import cc.hyperium.installer.api.entities.VersionManifest;
 import cc.hyperium.mods.sk1ercommon.Multithreading;
+import cc.hyperium.utils.DownloadTask;
+import cc.hyperium.utils.InstallerUtils;
 import cc.hyperium.utils.JsonHolder;
 import cc.hyperium.utils.UpdateUtils;
 import com.google.common.base.Charsets;
-import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 
-import java.awt.Color;
-import java.awt.Desktop;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.StreamSupport;
 
 /*
  * Created by Cubxity on 23/05/2018
  */
 public class InfoTab extends AbstractTab {
-    private static HyperiumOverlay licenses = new HyperiumOverlay();
+    private static HyperiumOverlay licenses = new HyperiumOverlay("Licenses");
 
     static {
         Multithreading.runAsync(() -> {
@@ -66,23 +67,47 @@ public class InfoTab extends AbstractTab {
 
         //TODO: Add buttons to view license in the licenses overlay
 
+
+        items.add(new SettingItem(() -> {
+            Desktop desktop = Desktop.getDesktop();
+            if (desktop != null) {
+                if (desktop.isSupported(Desktop.Action.BROWSE)) {
+                    try {
+                        desktop.browse(new URI("https://hyperium.cc"));
+                    } catch (IOException | URISyntaxException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }, null, "Website", "Website: Hyperium.cc \n Click to visit", "Browse Website", 0, 0));
+
+        items.add(new SettingItem(() -> {
+            Desktop desktop = Desktop.getDesktop();
+            if (desktop != null) {
+                if (desktop.isSupported(Desktop.Action.BROWSE)) {
+                    try {
+                        desktop.browse(new URI("https://hyperium.cc/discord"));
+                    } catch (IOException | URISyntaxException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }, null, "Discord", "Click to join Discord", "Click to join Discord", 0, 1));
+
         items.add(new SettingItem(() -> new GuiHyperiumCredits(HyperiumMainGui.INSTANCE).show(), null, "Credits", "List of contributors who helped with the client", "Lists of contributor name and amount of commits", 2, 0));
         items.add(new SettingItem(() -> HyperiumMainGui.INSTANCE.setOverlay(licenses), null, "Licenses", "Open Source Licenses", "Licenses for open source libraries used in the client", 2, 1));
         items.add(new SettingItem(() -> Multithreading.runAsync(() -> {
             if (!UpdateUtils.INSTANCE.isAbsoluteLatest()) {
                 try {
-                    UpdateUtils utils = UpdateUtils.INSTANCE;
-                    Hyperium.INSTANCE.getNotification().display("Update", "Downloading updates...", 3);
-                    JsonObject ver = StreamSupport.stream(utils.vJson.optJSONArray("versions").spliterator(), false)
-                            .filter(v -> utils.vJson.optString("latest-stable").equals(v.getAsJsonObject().get("name").getAsString())).findFirst()
-                            .orElseThrow(() -> new IllegalStateException("Couldn't find stable version")).getAsJsonObject();
-                    boolean download = ver.get("install-min").getAsInt() > InstallerConfig.VERSION;
+                    InstallerManifest manifest = InstallerUtils.getManifest();
+                    VersionManifest ver = manifest.getVersions()[0];
+                    boolean download = ver.getId() > Metadata.getVersionID();
                     System.out.println("Download=" + download);
                     Multithreading.runAsync(() -> {
                         try {
                             File jar;
                             if (download || Hyperium.INSTANCE.isDevEnv()) { // or else it will break in dev env
-                                DownloadTask task = new DownloadTask(ver.get("url").getAsString(), System.getProperty("java.io.tmpdir"));
+                                DownloadTask task = new DownloadTask(ver.getUrl(), System.getProperty("java.io.tmpdir"));
                                 task.execute();
                                 task.get();
                                 jar = new File(System.getProperty("java.io.tmpdir"), task.getFileName());
@@ -131,6 +156,11 @@ public class InfoTab extends AbstractTab {
     @Override
     public void drawHighlight(float s) {
         Gui.drawRect(0, (int) (y + s * (s * w / 2)), 3, (int) (y + w - s * (w / 2)), Color.WHITE.getRGB());
+    }
+
+    @Override
+    public String getTitle() {
+        return "Info";
     }
 
     @Override

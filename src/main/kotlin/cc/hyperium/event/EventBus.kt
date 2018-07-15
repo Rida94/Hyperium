@@ -18,6 +18,7 @@
 package cc.hyperium.event
 
 import com.google.common.reflect.TypeToken
+import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -40,7 +41,7 @@ object EventBus {
         // also contains the class itself
         val superClasses = TypeToken.of(obj.javaClass).types.rawTypes()
 
-        // we also want to loop over the super classes, since declaredMethods only gets method in the class itself
+        // we also want to loop over the super classes, since declaredMethods only gets method in the class itself`
         for (clazz in superClasses) {
             // iterates though all the methods in the class
             for (method in clazz.declaredMethods) {
@@ -113,6 +114,9 @@ object EventBus {
                     try {
                         sub.method.invoke(sub.instance, event)
                     } catch (e: Exception) {
+                        if (e is InvocationTargetException) {
+                            e.targetException.printStackTrace()
+                        }
                         e.printStackTrace()
                     }
                 }

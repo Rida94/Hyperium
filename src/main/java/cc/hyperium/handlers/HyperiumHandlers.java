@@ -37,9 +37,9 @@ import cc.hyperium.handlers.handlers.RenderPlayerAsBlock;
 import cc.hyperium.handlers.handlers.StatusHandler;
 import cc.hyperium.handlers.handlers.TimeTrackHandler;
 import cc.hyperium.handlers.handlers.ValueHandler;
-import cc.hyperium.handlers.handlers.animation.CapeHandler;
 import cc.hyperium.handlers.handlers.animation.DabHandler;
 import cc.hyperium.handlers.handlers.animation.FlossDanceHandler;
+import cc.hyperium.handlers.handlers.animation.cape.CapeHandler;
 import cc.hyperium.handlers.handlers.chat.AutoWhoChatHandler;
 import cc.hyperium.handlers.handlers.chat.FriendRequestChatHandler;
 import cc.hyperium.handlers.handlers.chat.GeneralChatHandler;
@@ -50,8 +50,12 @@ import cc.hyperium.handlers.handlers.chat.PrivateMessageReader;
 import cc.hyperium.handlers.handlers.chat.QuestTrackingChatHandler;
 import cc.hyperium.handlers.handlers.chat.RankedRatingChatHandler;
 import cc.hyperium.handlers.handlers.chat.WinTrackingChatHandler;
+import cc.hyperium.handlers.handlers.hud.VanillaEnhancementsHud;
 import cc.hyperium.handlers.handlers.keybinds.KeyBindHandler;
+import cc.hyperium.handlers.handlers.mixin.LayerDeadmau5HeadHandler;
+import cc.hyperium.handlers.handlers.particle.ParticleAuraHandler;
 import cc.hyperium.handlers.handlers.privatemessages.PrivateMessageHandler;
+import cc.hyperium.handlers.handlers.reach.ReachDisplay;
 import cc.hyperium.handlers.handlers.remoteresources.RemoteResourcesHandler;
 import cc.hyperium.mods.sk1ercommon.ResolutionUtil;
 import net.minecraft.client.Minecraft;
@@ -87,11 +91,14 @@ public class HyperiumHandlers {
     private OtherConfigOptions configOptions;
     private DabHandler dabHandler;
     private FlossDanceHandler flossDanceHandler;
+    private ParticleAuraHandler particleAuraHandler;
     private GameDataTracking dataTracking;
+    private VanillaEnhancementsHud vanillaEnhancementsHud;
     private QuestTrackingChatHandler questTracking;
     private RenderPlayerAsBlock renderPlayerAsBlock;
+    private ReachDisplay reachDisplay;
     private FlipHandler flipHandler;
-
+    private LayerDeadmau5HeadHandler layerDeadmau5HeadHandler;
 
     public HyperiumHandlers() {
         System.out.println("Loading handlers");
@@ -105,8 +112,12 @@ public class HyperiumHandlers {
         register(keybindHandler = new KeyBindHandler());
         register(hypixelDetector = new HypixelDetector());
         register(flipHandler = new FlipHandler());
+        register(reachDisplay = new ReachDisplay());
         register(locationHandler = new LocationHandler());
+        register(vanillaEnhancementsHud = new VanillaEnhancementsHud());
         register(valueHandler = new ValueHandler());
+        register(layerDeadmau5HeadHandler = new LayerDeadmau5HeadHandler());
+
         register(renderPlayerAsBlock = new RenderPlayerAsBlock());
         register(resolutionUtil = new ResolutionUtil());
         register(capeHandler = new CapeHandler());
@@ -115,7 +126,7 @@ public class HyperiumHandlers {
         register(dataTracking = new GameDataTracking());
         register(privateMessageHandler = new PrivateMessageHandler());
         register(dabHandler = new DabHandler());
-
+        register(particleAuraHandler = new ParticleAuraHandler());
         register(statusHandler = new StatusHandler());
         register(flossDanceHandler = new FlossDanceHandler());
 
@@ -140,6 +151,13 @@ public class HyperiumHandlers {
         register(commandHandler = new HyperiumCommandHandler());
     }
 
+    public ParticleAuraHandler getParticleAuraHandler() {
+        return particleAuraHandler;
+    }
+
+    public LayerDeadmau5HeadHandler getLayerDeadmau5HeadHandler() {
+        return layerDeadmau5HeadHandler;
+    }
 
     public RenderPlayerAsBlock getRenderPlayerAsBlock() {
         return renderPlayerAsBlock;
@@ -263,5 +281,9 @@ public class HyperiumHandlers {
 
     public StatusHandler getStatusHandler() {
         return statusHandler;
+    }
+
+    public ReachDisplay getReachDisplay() {
+        return reachDisplay;
     }
 }

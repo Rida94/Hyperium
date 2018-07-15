@@ -17,6 +17,7 @@
 
 package cc.hyperium.purchases;
 
+import cc.hyperium.Hyperium;
 import cc.hyperium.event.EventBus;
 import cc.hyperium.event.InvokeEvent;
 import cc.hyperium.event.PurchaseLoadEvent;
@@ -69,9 +70,7 @@ public class PurchaseApi {
         register(EnumPurchaseType.DRAGON_HEAD, DragonHeadCosmetic.class);
 
         getPackageAsync(UUIDUtil.getClientUUID(), hyperiumPurchase -> System.out.println("Loaded self packages: " + hyperiumPurchase.getResponse()));
-        Multithreading.runAsync(() -> {
-            capeAtlas = get("https://api.hyperium.cc/capeAtlas");
-        });
+        Multithreading.runAsync(() -> capeAtlas = get("https://api.hyperium.cc/capeAtlas"));
         getSelf();
     }
 
@@ -88,6 +87,9 @@ public class PurchaseApi {
         Multithreading.runAsync(() -> {
             synchronized (instance) {
                 UUID id = UUIDUtil.getClientUUID();
+                if (id == null) {
+                    return;
+                }
                 HyperiumPurchase purchase = purchasePlayers.get(id);
                 purchasePlayers.clear();
                 if (purchase != null) {
@@ -108,7 +110,7 @@ public class PurchaseApi {
         if (theWorld == null)
             return null;
         for (EntityPlayer playerEntity : theWorld.playerEntities) {
-            if (playerEntity.getName().equalsIgnoreCase(name) || EnumChatFormatting.getTextWithoutFormattingCodes(playerEntity.getDisplayName().getUnformattedText()).equalsIgnoreCase(name)) {
+            if (playerEntity.getName().equalsIgnoreCase(name) || EnumChatFormatting.getTextWithoutFormattingCodes(playerEntity.getName()).equalsIgnoreCase(name)) {
                 nameToUuid.put(name.toLowerCase(), playerEntity.getUniqueID());
                 return playerEntity.getUniqueID();
             }
@@ -204,10 +206,16 @@ public class PurchaseApi {
     }
 
     public void reload(UUID uuid) {
+        if (uuid.equals(UUIDUtil.getClientUUID())) {
+            refreshSelf();
+            Hyperium.INSTANCE.getHandlers().getCapeHandler().deleteCape(uuid);
+        }
         System.out.println("reloading " + uuid);
-        System.out.println("Reloading 1" + uuid);
         purchasePlayers.remove(uuid);
-        ensureLoaded(uuid);
+        getPackageSync(uuid);
+        Hyperium.INSTANCE.getHandlers().getCapeHandler().deleteCape(uuid);
+
+
     }
 
 

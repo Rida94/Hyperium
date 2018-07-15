@@ -19,9 +19,12 @@ package cc.hyperium.utils;
 
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.MathHelper;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.Color;
+import java.awt.*;
+
+import static org.lwjgl.opengl.GL11.GL_LINE_STRIP;
 
 
 public class RenderUtils {
@@ -40,8 +43,8 @@ public class RenderUtils {
         GL11.glBegin(6);
 
         for (int i = 0; i < 50; i++) {
-            float x = (float) (radius * Math.sin(i * 0.12566370614359174D));
-            float y = (float) (radius * Math.cos(i * 0.12566370614359174D));
+            float x = radius * MathHelper.sin((float) (i * 0.12566370614359174D));
+            float y = radius * MathHelper.cos((float) (i * 0.12566370614359174D));
             GlStateManager.color(f2, f3, f4, f);
             GL11.glVertex2f(xx + x, yy + y);
         }
@@ -67,8 +70,8 @@ public class RenderUtils {
         GL11.glShadeModel(7425);
         GL11.glBegin(2);
         for (int i = 0; i < 70; i++) {
-            float x = (float) (radius * Math.cos(i * 0.08975979010256552D));
-            float y = (float) (radius * Math.sin(i * 0.08975979010256552D));
+            float x = radius * MathHelper.cos((float) (i * 0.08975979010256552D));
+            float y = radius * MathHelper.sin((float) (i * 0.08975979010256552D));
             GlStateManager.color(f2, f3, f4, f);
             GL11.glVertex2f(xx + x, yy + y);
         }
@@ -216,18 +219,57 @@ public class RenderUtils {
     }
 
     public static void drawSmoothRect(int left, int top, int right, int bottom, int color) {
-        left += 4;
-        right -= 4;
+        drawSmoothRect(left, top, right, bottom, 4, color);
+
+    }
+
+    public static void drawSmoothRect(int left, int top, int right, int bottom, int circleSize, int color) {
+        left += circleSize;
+        right -= circleSize;
         Gui.drawRect(left, top, right, bottom, color);
-        Gui.drawRect(left - 4, top + 3, left, bottom - 3, color);
-        Gui.drawRect(right, top + 3, right + 4, bottom - 3, color);
+        int i = circleSize - 1;
+        Gui.drawRect(left - circleSize, top + i, left, bottom - i, color);
+        Gui.drawRect(right, top + i, right + circleSize, bottom - i, color);
 
-        RenderUtils.drawFilledCircle(left, top + 4, 4, color);
-        RenderUtils.drawFilledCircle(left, bottom - 4, 4, color);
+        RenderUtils.drawFilledCircle(left, top + circleSize, circleSize, color);
+        RenderUtils.drawFilledCircle(left, bottom - circleSize, circleSize, color);
 
-        RenderUtils.drawFilledCircle(right, top + 4, 4, color);
-        RenderUtils.drawFilledCircle(right, bottom - 4, 4, color);
+        RenderUtils.drawFilledCircle(right, top + circleSize, circleSize, color);
+        RenderUtils.drawFilledCircle(right, bottom - circleSize, circleSize, color);
+
+    }
+
+    public static void drawArc(float cx, float cy, float r, float startAngle, float angle, int segments, int color) {
+        float red = (float) (color >> 16 & 0xFF) / 255F;
+        float green = (float) (color >> 8 & 0xFF) / 255F;
+        float blue = (float) (color & 0xFF) / 255F;
+        float alpha = (float) (color >> 24 & 0xFF) / 255F;
+
+        float theta = angle / (float) (segments - 1);
+
+        double tf = Math.tan(theta);
+        float rf = MathHelper.cos(theta);
 
 
+        float x = r * MathHelper.cos(startAngle);
+        float y = r * MathHelper.sin(startAngle);
+
+        GlStateManager.pushMatrix();
+        GlStateManager.color(red, green, blue, alpha);
+        GL11.glBegin(GL_LINE_STRIP);
+        for (int ii = 0; ii < segments; ii++) {
+            GL11.glVertex2f(x + cx, y + cy);
+
+            float tx = -y;
+            float ty = x;
+
+            x += tx * tf;
+            y += ty * tf;
+
+            x *= rf;
+            y *= rf;
+        }
+        GL11.glEnd();
+        GlStateManager.popMatrix();
     }
 }

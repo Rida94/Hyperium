@@ -19,13 +19,19 @@ package cc.hyperium;
 
 import cc.hyperium.commands.defaults.CommandClearChat;
 import cc.hyperium.commands.defaults.CommandConfigGui;
+import cc.hyperium.commands.defaults.CommandCoords;
 import cc.hyperium.commands.defaults.CommandDebug;
 import cc.hyperium.commands.defaults.CommandLogs;
+import cc.hyperium.commands.defaults.CommandMessage;
 import cc.hyperium.commands.defaults.CommandNameHistory;
+import cc.hyperium.commands.defaults.CommandParticleAuras;
+import cc.hyperium.commands.defaults.CommandParty;
+import cc.hyperium.commands.defaults.CommandPing;
 import cc.hyperium.commands.defaults.CommandPlayGame;
 import cc.hyperium.commands.defaults.CommandPrivateMessage;
 import cc.hyperium.commands.defaults.CommandUpdate;
 import cc.hyperium.commands.defaults.CustomLevelheadCommand;
+import cc.hyperium.commands.defaults.DevTestCommand;
 import cc.hyperium.config.DefaultConfig;
 import cc.hyperium.config.Settings;
 import cc.hyperium.cosmetics.HyperiumCosmetics;
@@ -37,11 +43,10 @@ import cc.hyperium.event.PreInitializationEvent;
 import cc.hyperium.event.Priority;
 import cc.hyperium.event.minigames.MinigameListener;
 import cc.hyperium.gui.BlurDisableFallback;
+import cc.hyperium.gui.ColourOptions;
 import cc.hyperium.gui.ConfirmationPopup;
 import cc.hyperium.gui.NotificationCenter;
-import cc.hyperium.gui.main.HyperiumMainGui;
 import cc.hyperium.handlers.HyperiumHandlers;
-import cc.hyperium.installer.InstallerFrame;
 import cc.hyperium.integrations.spotify.Spotify;
 import cc.hyperium.mixinsimp.renderer.FontFixValues;
 import cc.hyperium.mods.HyperiumModIntegration;
@@ -58,7 +63,10 @@ import cc.hyperium.network.LoginReplyHandler;
 import cc.hyperium.network.NetworkHandler;
 import cc.hyperium.purchases.PurchaseApi;
 import cc.hyperium.tray.TrayManager;
+import cc.hyperium.utils.InstallerUtils;
 import cc.hyperium.utils.StaffUtils;
+import cc.hyperium.utils.UpdateUtils;
+import cc.hyperium.utils.eastereggs.EasterEggs;
 import cc.hyperium.utils.mods.CompactChat;
 import cc.hyperium.utils.mods.FPSLimiter;
 import net.minecraft.client.Minecraft;
@@ -72,6 +80,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLClassLoader;
 
@@ -79,36 +89,33 @@ import java.net.URLClassLoader;
  * Hyperium Client
  */
 public class Hyperium {
-
     /**
      * The hyperium instance
      */
     public static final Hyperium INSTANCE = new Hyperium();
-
     /**
      * Instance of the global mod LOGGER
      */
     public final static Logger LOGGER = LogManager.getLogger(Metadata.getModid());
-
     /**
      * The Hyperium configuration folder
      */
     public static final File folder = new File("hyperium");
-
     /**
      * Instance of default CONFIG
      */
-    public static final DefaultConfig CONFIG = new DefaultConfig(new File(folder, "CONFIG.json"));
-    public static boolean updateQueue = false;
 
+    public static final DefaultConfig CONFIG = new DefaultConfig(new File(folder, "CONFIG.json"));
+    public static String BUILD_ID = "RELEASE " + Metadata.getVersionID();
+    public static boolean updateQueue = false;
     private final GeneralStatisticsTracking statTrack = new GeneralStatisticsTracking();
     private final NotificationCenter notification = new NotificationCenter();
     private final RichPresenceManager richPresenceManager = new RichPresenceManager();
     private final ConfirmationPopup confirmation = new ConfirmationPopup();
+    public boolean isLatestVersion;
     private HyperiumCosmetics cosmetics;
     private HyperiumHandlers handlers;
     private HyperiumModIntegration modIntegration;
-
     private MinigameListener minigameListener;
     private boolean acceptedTos = false;
     private boolean fullScreen = false;
@@ -117,8 +124,18 @@ public class Hyperium {
     private Sk1erMod sk1erMod;
     private NettyClient client;
     private NetworkHandler networkHandler;
-    private HyperiumMainGui gui;
+    /**
+     * @param event initialize Hyperium
+     */
+    private boolean firstLaunch = false;
 
+    public NetworkHandler getNetworkHandler() {
+        return networkHandler;
+    }
+
+    public boolean isFirstLaunch() {
+        return firstLaunch;
+    }
 
     public MinigameListener getMinigameListener() {
         return minigameListener;
@@ -133,12 +150,19 @@ public class Hyperium {
         EventBus.INSTANCE.register(new AutoGG());
     }
 
-    /**
-     * @param event initialize Hyperium
-     */
-
     @InvokeEvent(priority = Priority.HIGH)
     public void init(InitializationEvent event) {
+        InputStream resourceAsStream = getClass().getResourceAsStream("/build.txt");
+        try {
+            if (resourceAsStream != null) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(resourceAsStream));
+                BUILD_ID = br.readLine();
+                br.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("Hyperium running build " + BUILD_ID);
         try {
             Class.forName("net.minecraft.dispenser.BehaviorProjectileDispense"); // check for random MC class
             isDevEnv = true;
@@ -148,13 +172,13 @@ public class Hyperium {
         cosmetics = new HyperiumCosmetics();
 
         // Creates the accounts dir
-        new File(folder.getAbsolutePath() + "/accounts").mkdirs();
+        firstLaunch = new File(folder.getAbsolutePath() + "/accounts").mkdirs();
+
 
         // Has the user accepted the TOS of the client?
         this.acceptedTos = new File(
                 folder.getAbsolutePath() + "/accounts/" + Minecraft.getMinecraft().getSession()
                         .getPlayerID() + ".lck").exists();
-        gui = new HyperiumMainGui();
         SplashProgress.PROGRESS = 5;
         SplashProgress.CURRENT = "Loading handlers";
         SplashProgress.update();
@@ -205,6 +229,7 @@ public class Hyperium {
         SplashProgress.CURRENT = "Registering config";
         SplashProgress.update();
         Settings.register();
+        Hyperium.CONFIG.register(new ColourOptions());
         //Register commands.
         SplashProgress.PROGRESS = 10;
         SplashProgress.CURRENT = "Registering commands";
@@ -222,11 +247,13 @@ public class Hyperium {
             e.printStackTrace();
             LOGGER.warn("Failed to fetch staff");
         }
-        richPresenceManager.init();
+        EventBus.INSTANCE.register(new EasterEggs());
 
         Multithreading.runAsync(Spotify::load);
 
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+
+        richPresenceManager.init();
 
         if (acceptedTos) {
             sk1erMod = new Sk1erMod("hyperium", Metadata.getVersion(), object -> {
@@ -254,6 +281,7 @@ public class Hyperium {
         Multithreading.runAsync(() -> {
 
             networkHandler = new NetworkHandler();
+            CONFIG.register(networkHandler);
             this.client = new NettyClient(networkHandler);
             UniversalNetty.getInstance().getPacketManager().register(new LoginReplyHandler());
         });
@@ -266,7 +294,6 @@ public class Hyperium {
                 String line;
                 while ((line = bufferedReader.readLine()) != null) {
                     Minecraft.getMinecraft().ingameGUI.getChatGUI().addToSentMessages(line);
-                    System.out.println("Restoring chat message: " + line);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -274,6 +301,8 @@ public class Hyperium {
         } else {
             System.out.println("Not restoring chat");
         }
+
+        isLatestVersion = UpdateUtils.INSTANCE.isAbsoluteLatest();
     }
 
     /**
@@ -289,7 +318,15 @@ public class Hyperium {
         getHandlers().getHyperiumCommandHandler().registerCommand(new CommandPlayGame());
         getHandlers().getHyperiumCommandHandler().registerCommand(new CommandDebug());
         getHandlers().getHyperiumCommandHandler().registerCommand(new CommandUpdate());
+        getHandlers().getHyperiumCommandHandler().registerCommand(new CommandCoords());
+        if (isDevEnv)
+            getHandlers().getHyperiumCommandHandler().registerCommand(new DevTestCommand());
         getHandlers().getHyperiumCommandHandler().registerCommand(new CommandLogs());
+        getHandlers().getHyperiumCommandHandler().registerCommand(new CommandPing());
+        getHandlers().getHyperiumCommandHandler().registerCommand(new CommandParty());
+
+        getHandlers().getHyperiumCommandHandler().registerCommand(new CommandMessage());
+        getHandlers().getHyperiumCommandHandler().registerCommand(new CommandParticleAuras());
     }
 
     /**
@@ -320,7 +357,7 @@ public class Hyperium {
 
         if (updateQueue) {
             try {
-                boolean windows = InstallerFrame.OsCheck.getOperatingSystemType() == InstallerFrame.OsCheck.OSType.Windows;
+                boolean windows = InstallerUtils.getOS() == InstallerUtils.OSType.Windows;
                 //Class<?> c = getClass();
                 //String n = c.getName().replace('.', '/');
                 String cs = "";
@@ -383,9 +420,7 @@ public class Hyperium {
         return cosmetics;
     }
 
-    public HyperiumMainGui getGui() {
-        return gui;
-    }
+
 
     // Does not appear to be used
 //    public void toggleFullscreen() {

@@ -17,15 +17,13 @@
 
 package cc.hyperium.mixins.world;
 
-import cc.hyperium.config.Settings;
-import cc.hyperium.event.EventBus;
-import cc.hyperium.event.SpawnpointChangeEvent;
-import net.minecraft.client.Minecraft;
+import cc.hyperium.mixinsimp.world.HyperiumWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.BlockPos;
 import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldType;
 import net.minecraft.world.storage.WorldInfo;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
@@ -34,11 +32,20 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.Collection;
+import java.util.List;
+
 @Mixin(World.class)
-public class MixinWorld {
+public abstract class MixinWorld {
+
+    @Shadow
+    @Final
+    public List<Entity> loadedEntityList;
 
     @Shadow
     private WorldInfo worldInfo;
+    private HyperiumWorld hyperiumWorld = new HyperiumWorld((World) (Object) this);
+
 
     /**
      * Invoked once the server changes the players spawn point
@@ -48,7 +55,7 @@ public class MixinWorld {
      */
     @Inject(method = "setSpawnPoint", at = @At("HEAD"))
     private void setSpawnPoint(BlockPos pos, CallbackInfo ci) {
-        EventBus.INSTANCE.post(new SpawnpointChangeEvent(pos));
+        hyperiumWorld.setSpawnPoint(pos, ci);
     }
 
     /**
@@ -60,9 +67,7 @@ public class MixinWorld {
      */
     @Inject(method = "checkLightFor", at = @At("HEAD"), cancellable = true)
     private void checkLightFor(EnumSkyBlock lightType, BlockPos pos, CallbackInfoReturnable<Boolean> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(false);
-        }
+        hyperiumWorld.checkLightFor(lightType, pos, ci);
     }
 
 
@@ -75,9 +80,7 @@ public class MixinWorld {
      */
     @Inject(method = "getLightFromNeighborsFor", at = @At("HEAD"), cancellable = true)
     private void getLightFromNeighborsFor(EnumSkyBlock type, BlockPos pos, CallbackInfoReturnable<Integer> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(15);
-        }
+        hyperiumWorld.getLightFromNeighborsFor(type, pos, ci);
     }
 
     /**
@@ -87,10 +90,7 @@ public class MixinWorld {
      */
     @Overwrite
     public double getHorizon() {
-        if (Settings.VOID_FLICKER_FIX) {
-            return 0.0;
-        }
-        return this.worldInfo.getTerrainType() == WorldType.FLAT ? 0.0D : 63.0D;
+        return hyperiumWorld.getHorizon(worldInfo);
     }
 
     /**
@@ -101,9 +101,7 @@ public class MixinWorld {
      */
     @Inject(method = "getLightFromNeighbors", at = @At("HEAD"), cancellable = true)
     private void getLightFromNeighbor(BlockPos pos, CallbackInfoReturnable<Integer> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(15);
-        }
+        hyperiumWorld.getLightFromNeighbor(pos, ci);
     }
 
     /**
@@ -115,9 +113,7 @@ public class MixinWorld {
      */
     @Inject(method = "getRawLight", at = @At("HEAD"), cancellable = true)
     private void getRawLight(BlockPos pos, EnumSkyBlock lightType, CallbackInfoReturnable<Integer> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(15);
-        }
+        hyperiumWorld.getRawLight(pos, lightType, ci);
     }
 
     /**
@@ -128,9 +124,7 @@ public class MixinWorld {
      */
     @Inject(method = "getLight(Lnet/minecraft/util/BlockPos;)I", at = @At("HEAD"), cancellable = true)
     private void getLight(BlockPos pos, CallbackInfoReturnable<Integer> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(15);
-        }
+        hyperiumWorld.getLight(pos, ci);
     }
 
     /**
@@ -142,8 +136,34 @@ public class MixinWorld {
      */
     @Inject(method = "getLight(Lnet/minecraft/util/BlockPos;Z)I", at = @At("HEAD"), cancellable = true)
     private void getLight(BlockPos pos, boolean checkNeighbors, CallbackInfoReturnable<Integer> ci) {
-        if (!Minecraft.getMinecraft().isIntegratedServerRunning() && Settings.FULLBRIGHT) {
-            ci.setReturnValue(15);
-        }
+        hyperiumWorld.getLight(pos, checkNeighbors, ci);
     }
+
+    /**
+     * @author Amplifiable
+     * @reason Events
+     */
+    @Overwrite
+    public void joinEntityInSurroundings(Entity entity) {
+        hyperiumWorld.joinEntityInSurroundings(entity);
+    }
+
+    /**
+     * @author Amplifiable
+     * @reason Events
+     */
+    @Overwrite
+    public boolean spawnEntityInWorld(Entity entity) {
+        return hyperiumWorld.spawnEntityInWorld(entity);
+    }
+
+    /**
+     * @author Amplifiable
+     * @reason Events
+     */
+    @Inject(method = "loadEntities", at = @At(value = "INVOKE", target = "Ljava/util/List;addAll(Ljava/util/Collection;)Z", shift = At.Shift.AFTER))
+    public void loadEntities(Collection<Entity> entityCollection, CallbackInfo info) {
+       hyperiumWorld.loadEntities(entityCollection);
+    }
+
 }

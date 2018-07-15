@@ -23,6 +23,7 @@ import cc.hyperium.event.EventBus;
 import cc.hyperium.event.GuiClickEvent;
 import cc.hyperium.event.InvokeEvent;
 import cc.hyperium.event.RenderHUDEvent;
+import cc.hyperium.event.TickEvent;
 import cc.hyperium.gui.HyperiumGui;
 import cc.hyperium.integrations.spotify.Spotify;
 import cc.hyperium.integrations.spotify.impl.SpotifyInformation;
@@ -53,6 +54,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.Charset;
 
 
 /**
@@ -109,7 +111,7 @@ public class SpotifyControls extends AbstractMod {
         }
 
         try {
-            BetterJsonObject obj = new BetterJsonObject(FileUtils.readFileToString(configFile));
+            BetterJsonObject obj = new BetterJsonObject(FileUtils.readFileToString(configFile, Charset.defaultCharset()));
             this.x = obj.get("x").getAsInt();
             this.y = obj.get("y").getAsInt();
         } catch (IOException e) {
@@ -190,7 +192,7 @@ public class SpotifyControls extends AbstractMod {
 
         play.updateDynamicTexture();
     }
-
+    public int concatNameCount = 0;
     public void renderControls() {
         if (Spotify.instance == null) {
             return;
@@ -279,7 +281,24 @@ public class SpotifyControls extends AbstractMod {
 
         GL11.glPushMatrix();
         GL11.glScalef(1.2f, 1.2f, 1);
-        fontRenderer.drawString(name, (float) ((x + 5) / 1.2), (float) ((y + 5) / 1.2), white.getRGB(), false);
+
+        if(name.length() > 16) {
+            int concatNameCount2 = concatNameCount + 16;
+            String name2 = track.getTrackResource().getName();
+            String concatName = name2 + "    " + name2;
+            Minecraft.getMinecraft().fontRendererObj.drawString(concatName.substring(concatNameCount, concatNameCount + 16), (float) ((x + 5) / 1.2), (float) ((y + 5) / 1.2), white.getRGB(), false);
+            if(System.currentTimeMillis() % 100 == 0){
+                concatNameCount++;
+                concatNameCount2 = concatNameCount + 16;
+            }
+            if(concatNameCount2 == concatName.length()) {
+                concatNameCount = 0;
+                concatNameCount2 = 0;
+            }
+        } else {
+            fontRenderer.drawString(name, (float) ((x + 5) / 1.2), (float) ((y + 5) / 1.2), white.getRGB(), false);
+        }
+
         GL11.glPopMatrix();
 
         fontRenderer.drawString(artist, x + 5, y + 18, white.getRGB());
@@ -348,3 +367,4 @@ public class SpotifyControls extends AbstractMod {
         save();
     }
 }
+

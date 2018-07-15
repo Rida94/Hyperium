@@ -1,6 +1,7 @@
 package cc.hyperium.mixins.renderer;
 
 import cc.hyperium.Hyperium;
+import cc.hyperium.config.Settings;
 import cc.hyperium.handlers.HyperiumHandlers;
 import cc.hyperium.handlers.handlers.FontRendererData;
 import cc.hyperium.mixinsimp.renderer.CachedString;
@@ -27,10 +28,6 @@ import java.util.Random;
 @Mixin(FontRenderer.class)
 public abstract class MixinFontRenderer {
 
-
-    @Shadow
-    @Final
-    private static ResourceLocation[] unicodePageLocations;
     @Shadow
     public int FONT_HEIGHT;
     @Shadow
@@ -38,8 +35,6 @@ public abstract class MixinFontRenderer {
     @Shadow
     @Final
     private TextureManager renderEngine;
-    @Shadow
-    private int[] charWidth;
     @Shadow
     private int[] colorCode;
     @Shadow
@@ -81,7 +76,6 @@ public abstract class MixinFontRenderer {
     @Shadow
     protected abstract float func_181559_a(char ch, boolean italic);
 
-
     @Shadow
     protected abstract ResourceLocation getUnicodePageLocation(int page);
 
@@ -103,7 +97,7 @@ public abstract class MixinFontRenderer {
     @Overwrite
     private void renderStringAtPos(String text, boolean shadow) {
         //Full speed ahead
-        boolean optimize = FontFixValues.INSTANCE.opt;
+        boolean optimize = Settings.OPTIMIZED_FONT_RENDERER;
         FontFixValues instance = FontFixValues.INSTANCE;
         Map<StringHash, CachedString> stringCache = instance.stringCache;
 
@@ -120,6 +114,8 @@ public abstract class MixinFontRenderer {
             long l1 = System.nanoTime();
             FontFixValues.INSTANCE.incTime(l1 - l);
             if (cachedString != null) {
+
+
                 GlStateManager.color(this.red, this.blue, this.green, alpha);
                 renderEngine.bindTexture(this.locationFontTexture);
                 GlStateManager.callList(cachedString.getListId());
@@ -137,6 +133,9 @@ public abstract class MixinFontRenderer {
         }
         boolean hasObf = false;
         CachedString value = new CachedString(text, list, this.posX - posX, this.posY - posY);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 0.0F);
+        this.func_181559_a('.', this.italicStyle);
+        GlStateManager.color(red, blue, green, alpha);
 
         for (int i = 0; i < text.length(); ++i) {
             char c0 = text.charAt(i);
